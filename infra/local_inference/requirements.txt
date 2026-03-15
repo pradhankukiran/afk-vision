@@ -1,0 +1,7 @@
+fastapi==0.115.12
+numpy==2.1.1
+pillow==11.0.0
+transformers==4.51.3
+torchvision==0.21.0
+ultralytics==8.3.93
+uvicorn[standard]==0.34.0

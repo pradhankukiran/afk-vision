@@ -1,0 +1,36 @@
+[project]
+name = "afk-vision"
+version = "0.1.0"
+description = "AFK Vision - aerial imagery anomaly detection workbench."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "celery[redis]>=5.4.0",
+    "dj-database-url>=2.3.0",
+    "django>=5.1,<5.2",
+    "djangorestframework>=3.15.2",
+    "gunicorn>=23.0.0",
+    "numpy>=2.1.2",
+    "pgvector>=0.3.6",
+    "pillow>=11.0.0",
+    "psycopg[binary]>=3.2.3",
+    "python-dotenv>=1.0.1",
+    "whitenoise>=6.8.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-django>=4.9.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+
+[tool.setuptools.packages.find]
+include = ["config", "vision", "vision.*"]
+
+[build-system]
+requires = ["setuptools>=75.0.0", "wheel"]
+build-backend = "setuptools.build_meta"

@@ -1,0 +1,61 @@
+{% extends "vision/base.html" %}
+{% load static vision_tags %}
+
+{% block title %}AFK Vision{% endblock %}
+
+{% block content %}
+  <section class="page-header page-header-single">
+    <div>
+      <h1>AFK Vision</h1>
+    </div>
+  </section>
+
+  <section class="layout-two">
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Create scouting program</h2>
+        <p>Register a new crop-and-weed review workspace before uploading imagery.</p>
+      </div>
+      <form method="post" class="stack-form">
+        {% csrf_token %}
+        <div class="field">
+          <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+          {{ form.name }}
+        </div>
+        <div class="field">
+          <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+          {{ form.description }}
+        </div>
+        <div class="field-actions">
+          <button type="submit" class="button button-primary">Create scouting program</button>
+        </div>
+      </form>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <h2>Scouting registry</h2>
+        <p>Each entry tracks field imagery, weed/crop detections, and reviewer decisions.</p>
+      </div>
+      <div class="table-list">
+        <div class="table-row table-head">
+          <span>Name</span>
+          <span>Description</span>
+          <span>Status</span>
+        </div>
+        {% for project in projects %}
+          <a href="{% url 'vision:project-detail' pk=project.pk %}" class="table-row table-link">
+            <span class="table-main">{{ project.name }}</span>
+            <span class="table-sub">{{ project.description|default:"No description provided." }}</span>
+            <span class="pill pill-{{ project.status }}">{{ project.status }}</span>
+          </a>
+        {% empty %}
+          <div class="empty-state">
+            <strong>No scouting programs yet</strong>
+            <span>Create a scouting program to initialize the crop-and-weed pipeline.</span>
+          </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+{% endblock %}

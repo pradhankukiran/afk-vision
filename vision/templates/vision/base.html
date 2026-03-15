@@ -1,0 +1,22 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}AFK Vision{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'vision/app.css' %}" />
+  </head>
+  <body>
+    <div class="page-shell">
+      {% if messages %}
+        <section class="flash-stack">
+          {% for message in messages %}
+            <div class="flash flash-{{ message.tags|default:'info' }}">{{ message }}</div>
+          {% endfor %}
+        </section>
+      {% endif %}
+      <main class="content">{% block content %}{% endblock %}</main>
+    </div>
+  </body>
+</html>

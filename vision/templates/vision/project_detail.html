@@ -1,0 +1,287 @@
+{% extends "vision/base.html" %}
+{% load static vision_tags %}
+
+{% block title %}{{ project.name }} · AFK Vision{% endblock %}
+
+{% block content %}
+  <section
+    class="page-header page-header-tight"
+    {% if latest_run and latest_run.status != "succeeded" and latest_run.status != "failed" %}
+      data-run-monitor
+      data-run-id="{{ latest_run.id }}"
+      data-run-terminal-status="{{ latest_run.status }}"
+    {% endif %}
+  >
+    <div>
+      <p class="eyebrow">Project</p>
+      <h1>{{ project.name }}</h1>
+      <p class="muted">{{ project.description|default:"Operational workspace for crop and weed scouting review." }}</p>
+    </div>
+    <div class="header-note header-note-compact">
+      <strong>Current scouting state</strong>
+      {% if latest_run %}
+        <div class="run-state-line">
+          {% if latest_run.status != "succeeded" and latest_run.status != "failed" %}
+            <span class="run-state-spinner" data-run-spinner aria-hidden="true"></span>
+          {% endif %}
+          <span data-run-summary>{{ latest_run.current_stage|title }} · {{ latest_run.progress }}% · {{ latest_run.status|upper }}</span>
+        </div>
+      {% else %}
+        <span>No scouting run has been started for this project.</span>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="metric-row detail-metrics">
+    <div class="metric-card">
+      <span>Project status</span>
+      <strong data-project-status>{{ project.status|upper }}</strong>
+    </div>
+    <div class="metric-card">
+      <span>Images</span>
+      <strong>{{ project.images.all|length }}</strong>
+    </div>
+    <div class="metric-card">
+      <span>Findings in view</span>
+      <strong>{{ detections|length }}</strong>
+    </div>
+    <div class="metric-card">
+      <span>Classes</span>
+      <strong>{% if project.classes %}{{ project.classes|join_humanized }}{% else %}Pending{% endif %}</strong>
+    </div>
+  </section>
+
+  <section class="workspace-grid">
+    <aside class="sidebar-stack">
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Scouting imagery intake</h2>
+          <p>Ingest a high-resolution crop or field image into the current scouting workspace.</p>
+        </div>
+        <form method="post" enctype="multipart/form-data" class="stack-form">
+          {% csrf_token %}
+          <input type="hidden" name="upload_image" value="1" />
+          <div class="field field-file">
+            <span>{{ upload_form.image.label }}</span>
+            <label class="file-picker" for="{{ upload_form.image.id_for_label }}">
+              {{ upload_form.image }}
+              <span class="file-picker-button">Select image</span>
+              <span class="file-picker-name" data-file-name>No file selected</span>
+            </label>
+          </div>
+          <div class="field-actions">
+            <button type="submit" class="button button-primary">Upload scouting image</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Scouting images</h2>
+          <p>Select the active image for weed/crop review or execution.</p>
+        </div>
+        <div class="image-list">
+          {% for image in project.images.all %}
+            <a href="?image={{ image.id }}" class="image-chip {% if selected_image and image.id == selected_image.id %}image-chip-active{% endif %}">
+              <span class="filename">{{ image.filename }}</span>
+              <small>{{ image.width }} × {{ image.height }}</small>
+            </a>
+          {% empty %}
+            <div class="empty-state">
+              <strong>No scouting images uploaded</strong>
+              <span>Add the first scouting image to unlock the review canvas.</span>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if selected_image %}
+          <div class="field-actions top-gap">
+            <form method="post" action="{% url 'vision:launch-run' pk=project.pk image_id=selected_image.id %}">
+              {% csrf_token %}
+              <button type="submit" class="button button-secondary">Start scouting run</button>
+            </form>
+          </div>
+        {% endif %}
+      </article>
+    </aside>
+
+    <div class="workspace-main">
+      <article class="panel canvas-panel">
+        <div class="panel-head">
+          <h2>Scouting canvas</h2>
+          <p>Crop and weed detections are merged across tiles and rendered in image-global coordinates.</p>
+        </div>
+        {% if selected_image %}
+          <div class="canvas-toolbar">
+            <div>
+              <span class="toolbar-label">Image</span>
+              <strong>{{ selected_image.filename }}</strong>
+            </div>
+            <div>
+              <span class="toolbar-label">Resolution</span>
+              <strong>{{ selected_image.width }} × {{ selected_image.height }}</strong>
+            </div>
+            <div>
+              <span class="toolbar-label">Findings</span>
+              <strong>{{ detections|length }}</strong>
+            </div>
+          </div>
+          <div class="canvas-shell" data-vision-canvas data-width="{{ selected_image.width }}" data-height="{{ selected_image.height }}">
+            <img src="{{ selected_image.image.url }}" alt="{{ selected_image.filename }}" class="canvas-image" />
+            <div class="canvas-overlay">
+              {% for detection in detections %}
+                <button
+                  type="button"
+                  class="bbox bbox-{{ detection.label }} bbox-{{ detection.review_state }} {% if selected_detection and detection.id == selected_detection.id %}bbox-active{% endif %}"
+                  style="
+                    left: {{ detection.normalized_bbox.x1|pct|floatformat:4 }}%;
+                    top: {{ detection.normalized_bbox.y1|pct|floatformat:4 }}%;
+                    width: calc({{ detection.normalized_bbox.x2|pct|floatformat:4 }}% - {{ detection.normalized_bbox.x1|pct|floatformat:4 }}%);
+                    height: calc({{ detection.normalized_bbox.y2|pct|floatformat:4 }}% - {{ detection.normalized_bbox.y1|pct|floatformat:4 }}%);
+                  "
+                  data-detection-id="{{ detection.id }}"
+                  data-target="detail-{{ detection.id }}"
+                >
+                  <span>{{ detection.label|humanize_token }}</span>
+                </button>
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <div class="empty-state empty-state-panel">
+            <strong>No image selected</strong>
+            <span>Select or upload a scouting image to render the review canvas.</span>
+          </div>
+        {% endif %}
+      </article>
+
+      <section class="review-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Scouting queue</h2>
+            <p>Review crop and weed detections in a compact grid and open one record at a time in the inspector.</p>
+          </div>
+          {% if detections %}
+            <div class="queue-table">
+              <div class="queue-row queue-head">
+                <span>Class</span>
+                <span>Confidence</span>
+                <span>Bounds</span>
+                <span>Review</span>
+                <span>Verify</span>
+              </div>
+              {% for detection in detections %}
+                <button
+                  type="button"
+                  id="row-{{ detection.id }}"
+                  class="queue-row detection-row {% if selected_detection and detection.id == selected_detection.id %}detection-row-active{% endif %}"
+                  data-detection-id="{{ detection.id }}"
+                  data-target="detail-{{ detection.id }}"
+                >
+                  <span class="queue-main">{{ detection.label|humanize_token }}</span>
+                  <span>{{ detection.confidence|floatformat:2 }}</span>
+                  <span class="queue-meta">X {{ detection.pixel_bbox.x1|floatformat:0 }} - {{ detection.pixel_bbox.x2|floatformat:0 }} / Y {{ detection.pixel_bbox.y1|floatformat:0 }} - {{ detection.pixel_bbox.y2|floatformat:0 }}</span>
+                  <span class="pill pill-{{ detection.review_state }}">{{ detection.review_state }}</span>
+                  <span class="pill pill-{{ detection.verification_state }}">{{ detection.verification_state }}</span>
+                </button>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="empty-state">
+              <strong>No scouting findings available</strong>
+              <span>Start a scouting run to populate the review queue.</span>
+            </div>
+          {% endif %}
+        </article>
+
+        <div class="side-stack">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Scouting inspector</h2>
+              <p>Inspect one crop or weed detection, update disposition, and add reviewer notes.</p>
+            </div>
+            {% if detections %}
+              {% for detection in detections %}
+                <section id="detail-{{ detection.id }}" class="inspector-card {% if selected_detection and detection.id == selected_detection.id %}inspector-card-active{% endif %}" {% if not selected_detection or detection.id != selected_detection.id %}hidden{% endif %}>
+                  <div class="detection-head">
+                    <div>
+                      <strong>{{ detection.label|humanize_token }}</strong>
+                      <span class="detection-score">Confidence {{ detection.confidence|floatformat:2 }}</span>
+                    </div>
+                    <div class="status-cluster">
+                      <span class="pill pill-{{ detection.review_state }}">{{ detection.review_state }}</span>
+                      <span class="pill pill-{{ detection.verification_state }}">{{ detection.verification_state }}</span>
+                    </div>
+                  </div>
+                  <p class="muted small">{{ detection.explanation }}</p>
+                  <div class="bbox-meta">
+                    <span>X {{ detection.pixel_bbox.x1|floatformat:0 }} - {{ detection.pixel_bbox.x2|floatformat:0 }}</span>
+                    <span>Y {{ detection.pixel_bbox.y1|floatformat:0 }} - {{ detection.pixel_bbox.y2|floatformat:0 }}</span>
+                  </div>
+                  {% if detection.crop %}
+                    <img src="{{ detection.crop.url }}" alt="{{ detection.label }}" class="crop-image" />
+                  {% endif %}
+                  <div class="inline-actions">
+                    <button type="button" class="button button-secondary similar-trigger" data-detection-id="{{ detection.id }}">
+                      Find similar patches
+                    </button>
+                  </div>
+                  <form method="post" action="{% url 'vision:update-detection' pk=project.pk detection_id=detection.id %}" class="stack-form compact">
+                    {% csrf_token %}
+                    <div class="field">
+                      <label>
+                        Review state
+                        <select name="review_state">
+                          <option value="pending" {% if detection.review_state == 'pending' %}selected{% endif %}>Pending</option>
+                          <option value="confirmed" {% if detection.review_state == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                          <option value="rejected" {% if detection.review_state == 'rejected' %}selected{% endif %}>Rejected</option>
+                          <option value="relabeled" {% if detection.review_state == 'relabeled' %}selected{% endif %}>Relabeled</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div class="field">
+                      <label>
+                        Notes
+                        <textarea name="reviewer_notes" rows="3">{{ detection.reviewer_notes }}</textarea>
+                      </label>
+                    </div>
+                    <div class="field-actions">
+                      <button type="submit" class="button button-primary">Save review</button>
+                    </div>
+                  </form>
+                </section>
+              {% endfor %}
+            {% else %}
+              <div class="empty-state">
+                <strong>No finding selected</strong>
+                <span>Run scouting to populate the inspector.</span>
+              </div>
+            {% endif %}
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>Similarity search</h2>
+              <p>Use a reviewed plant patch as a visual query across stored embeddings.</p>
+            </div>
+            <div id="similar-results" class="similar-grid">
+              {% if detections %}
+                <div class="empty-state">
+                  <strong>No active similarity query</strong>
+                  <span>Select “Find similar patches” in the inspector to populate this result grid.</span>
+                </div>
+              {% else %}
+                <div class="empty-state">
+                  <strong>Similarity search unavailable</strong>
+                  <span>Run scouting to generate plant crops and embeddings first.</span>
+                </div>
+              {% endif %}
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <script src="{% static 'vision/app.js' %}"></script>
+{% endblock %}
