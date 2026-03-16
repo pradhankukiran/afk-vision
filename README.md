@@ -102,35 +102,6 @@ AFKVISION_TILE_SIZE=1024
 AFKVISION_TILE_OVERLAP=128
 ```
 
-## Local inference service
-
-The Dockerized local inference service lives in [infra/local_inference/app.py](/home/kiran/AFK/afk-vision/infra/local_inference/app.py) and exposes:
-
-- `GET /health`
-- `POST /detect`
-- `POST /embed`
-
-The detector returns global-image bounding boxes by remapping YOLO tile detections back into the original image space.
-
-For a custom agriculture model, the most relevant detector env vars are:
-
-- `AFKVISION_DETECTOR_MODEL_REPO`
-- `AFKVISION_DETECTOR_MODEL_FILE`
-- `AFKVISION_CLASS_SCHEMA`
-- `AFKVISION_SCHEMA_LABELS`
-- `AFKVISION_ALLOWED_LABELS`
-- `AFKVISION_LABEL_ALIASES_JSON`
-
-`AFKVISION_ALLOWED_LABELS` is optional and should usually stay empty until you want to hard-filter the detector output. The built-in default alias map normalizes WeedBlaster class names like `Sugar Beet` to `sugar_beet`.
-
-## Optional demo seed
-
-```bash
-uv run python manage.py seed_demo
-```
-
-That generates a synthetic field image you can upload to verify the local pipeline without hunting for sample imagery first.
-
 ## API surface
 
 - `POST /api/projects/`
